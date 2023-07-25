@@ -11,22 +11,9 @@
 #define EmonLib_h
 
 #if defined(ARDUINO) && ARDUINO >= 100
-
 #include "Arduino.h"
-
 #else
-
 #include "WProgram.h"
-
-#endif
-
-// define theoretical vref calibration constant for use in readvcc()
-// 1100mV*1024 ADC steps http://openenergymonitor.org/emon/node/1186
-// override in your code with value for your specific AVR chip
-// determined by procedure described under "Calibrating the internal reference voltage" at
-// http://openenergymonitor.org/emon/buildingblocks/calibration
-#ifndef READVCC_CALIBRATION_CONST
-#define READVCC_CALIBRATION_CONST 1126400L
 #endif
 
 // to enable 12-bit ADC resolution on Arduino Due,
@@ -35,12 +22,22 @@
 // otherwise will default to 10 bits, as in regular Arduino-based boards.
 #if defined(__arm__)
 #define ADC_BITS    12
+#elif defined(ESP32)
+#define ADC_BITS    12
 #else
 #define ADC_BITS    10
 #endif
 
 #define ADC_COUNTS  (1<<ADC_BITS)
 
+// define theoretical vref calibration constant for use in readvcc()
+// 1100mV*ADC_COUNT ADC steps http://openenergymonitor.org/emon/node/1186
+// override in your code with value for your specific AVR chip
+// determined by procedure described under "Calibrating the internal reference voltage" at
+// http://openenergymonitor.org/emon/buildingblocks/calibration
+#ifndef READVCC_CALIBRATION_CONST
+#define READVCC_CALIBRATION_CONST (1100L * ADC_COUNTS)
+#endif
 
 class EnergyMonitor
 {
@@ -93,8 +90,6 @@ class EnergyMonitor
     int startV;                                       //Instantaneous voltage at start of sample window.
 
     boolean lastVCross, checkVCross;                  //Used to measure number of times threshold is crossed.
-
-
 };
 
 #endif

@@ -65,11 +65,11 @@ void EnergyMonitor::currentTX(unsigned int _channel, double _ICAL)
 //--------------------------------------------------------------------------------------
 void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
 {
-  #if defined emonTxV3
+#if defined emonTxV3
   int SupplyVoltage=3300;
-  #else
+#else
   int SupplyVoltage = readVcc();
-  #endif
+#endif
 
   unsigned int crossCount = 0;                             //Used to measure number of times threshold is crossed.
   unsigned int numberOfSamples = 0;                        //This is now incremented
@@ -106,9 +106,9 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
     // B) Apply digital low pass filters to extract the 2.5 V or 1.65 V dc offset,
     //     then subtract this - signal is now centred on 0 counts.
     //-----------------------------------------------------------------------------
-    offsetV = offsetV + ((sampleV-offsetV)/1024);
+    offsetV = offsetV + ((sampleV-offsetV)/ADC_COUNTS);
     filteredV = sampleV - offsetV;
-    offsetI = offsetI + ((sampleI-offsetI)/1024);
+    offsetI = offsetI + ((sampleI-offsetI)/ADC_COUNTS);
     filteredI = sampleI - offsetI;
 
     //-----------------------------------------------------------------------------
@@ -175,11 +175,11 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
 double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
 {
 
-  #if defined emonTxV3
-    int SupplyVoltage=3300;
-  #else
-    int SupplyVoltage = readVcc();
-  #endif
+#if defined emonTxV3
+  int SupplyVoltage=3300;
+#else
+  int SupplyVoltage = readVcc();
+#endif
 
 
   for (unsigned int n = 0; n < Number_of_Samples; n++)
@@ -188,7 +188,7 @@ double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
 
     // Digital low pass filter extracts the 2.5 V or 1.65 V dc offset,
     //  then subtract this - signal is now centered on 0 counts.
-    offsetI = (offsetI + (sampleI-offsetI)/1024);
+    offsetI = (offsetI + (sampleI-offsetI)/ADC_COUNTS);
     filteredI = sampleI - offsetI;
 
     // Root-mean-square method current
@@ -201,7 +201,7 @@ double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
   double I_RATIO = ICAL *((SupplyVoltage/1000.0) / (ADC_COUNTS));
   Irms = I_RATIO * sqrt(sumI / Number_of_Samples);
 
-  //Reset accumulators
+  // Reset accumulators
   sumI = 0;
   //--------------------------------------------------------------------------------------
 
@@ -223,41 +223,37 @@ void EnergyMonitor::serialprint()
   delay(100);
 }
 
-//thanks to http://hacking.majenko.co.uk/making-accurate-adc-readings-on-arduino
-//and Jérôme who alerted us to http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
+// thanks to http://hacking.majenko.co.uk/making-accurate-adc-readings-on-arduino
+// and Jérôme who alerted us to http://provideyourown.com/2012/secret-arduino-voltmeter-measure-battery-voltage/
 
 long EnergyMonitor::readVcc() {
-  long result;
+  // not used on emonTx V3 - as Vcc is always 3.3V - eliminates bandgap error and need for calibration http://harizanov.com/2013/09/thoughts-on-avr-adc-accuracy/
 
-  //not used on emonTx V3 - as Vcc is always 3.3V - eliminates bandgap error and need for calibration http://harizanov.com/2013/09/thoughts-on-avr-adc-accuracy/
-
-  #if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__)
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-  #elif defined(__AVR_ATmega644__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__)
+#elif defined(__AVR_ATmega644__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__)
   ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-  #elif defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_AT90USB1286__)
+#elif defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_AT90USB1286__)
   ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   ADCSRB &= ~_BV(MUX5);   // Without this the function always returns -1 on the ATmega2560 http://openenergymonitor.org/emon/node/2253#comment-11432
-  #elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+#elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
   ADMUX = _BV(MUX5) | _BV(MUX0);
-  #elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+#elif defined (__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
   ADMUX = _BV(MUX3) | _BV(MUX2);
+#endif
 
-  #endif
 
-
-  #if defined(__AVR__)
+#if defined(__AVR__)
   delay(2);                                        // Wait for Vref to settle
   ADCSRA |= _BV(ADSC);                             // Convert
   while (bit_is_set(ADCSRA,ADSC));
-  result = ADCL;
+  long result = ADCL;
   result |= ADCH<<8;
-  result = READVCC_CALIBRATION_CONST / result;  //1100mV*1024 ADC steps http://openenergymonitor.org/emon/node/1186
+  result = READVCC_CALIBRATION_CONST / result;     // 1100mV*ADC_COUNTS ADC steps http://openenergymonitor.org/emon/node/1186
   return result;
-  #elif defined(__arm__)
-  return (3300);                                  //Arduino Due
-  #else
-  return (3300);                                  //Guess that other un-supported architectures will be running a 3.3V!
-  #endif
+#elif defined(__arm__)
+  return (3300);                                   // Arduino Due
+#else
+  return (3300);                                   // Guess that other un-supported architectures will be running a 3.3V!
+#endif
 }
-
