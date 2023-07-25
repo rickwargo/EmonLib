@@ -65,11 +65,7 @@ void EnergyMonitor::currentTX(unsigned int _channel, double _ICAL)
 //--------------------------------------------------------------------------------------
 void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
 {
-#if defined emonTxV3
-  int SupplyVoltage=3300;
-#else
-  int SupplyVoltage = readVcc();
-#endif
+  int supplyVoltage = readVcc();
 
   unsigned int crossCount = 0;                             //Used to measure number of times threshold is crossed.
   unsigned int numberOfSamples = 0;                        //This is now incremented
@@ -100,8 +96,9 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
     //-----------------------------------------------------------------------------
     // A) Read in raw voltage and current samples
     //-----------------------------------------------------------------------------
-    sampleV = analogRead(inPinV);                 //Read in raw voltage signal
-    sampleI = analogRead(inPinI);                 //Read in raw current signal
+
+    sampleV = inPinV > 0 ? analogRead(inPinV) : readVcc();         //Read in raw voltage signal
+    sampleI = inPinI > 0 ? analogRead(inPinI) : 0;                 //Read in raw current signal
 
     //-----------------------------------------------------------------------------
     // B) Apply digital low pass filters to extract the 2.5 V or 1.65 V dc offset,
@@ -142,7 +139,7 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
     //-----------------------------------------------------------------------------
     lastVCross = checkVCross;
     if (sampleV > startV) checkVCross = true;
-                     else checkVCross = false;
+    else checkVCross = false;
     if (numberOfSamples==1) lastVCross = checkVCross;
 
     if (lastVCross != checkVCross) crossCount++;
@@ -154,10 +151,10 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
   //Calculation of the root of the mean of the voltage and current squared (rms)
   //Calibration coefficients applied.
 
-  double V_RATIO = VCAL *((SupplyVoltage/1000.0) / (ADC_COUNTS));
+  double V_RATIO = VCAL *((supplyVoltage/1000.0) / (ADC_COUNTS));
   Vrms = V_RATIO * sqrt(sumV / numberOfSamples);
 
-  double I_RATIO = ICAL *((SupplyVoltage/1000.0) / (ADC_COUNTS));
+  double I_RATIO = ICAL *((supplyVoltage/1000.0) / (ADC_COUNTS));
   Irms = I_RATIO * sqrt(sumI / numberOfSamples);
 
   //Calculation power values
@@ -175,13 +172,7 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
 //--------------------------------------------------------------------------------------
 double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
 {
-
-#if defined emonTxV3
-  int SupplyVoltage=3300;
-#else
-  int SupplyVoltage = readVcc();
-#endif
-
+  int supplyVoltage = readVcc();
 
   for (unsigned int n = 0; n < Number_of_Samples; n++)
   {
@@ -199,10 +190,9 @@ double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
     sumI += sqI;
   }
 
-  double I_RATIO = ICAL *((SupplyVoltage/1000.0) / (ADC_COUNTS));
+  double I_RATIO = ICAL *((supplyVoltage/1000.0) / (ADC_COUNTS));
   Irms = I_RATIO * sqrt(sumI / Number_of_Samples);
 
-  Serial.printf(">ICAL:%g SupplyVoltage:%d ADC_BITS:%d ADC_COUNTS:%d I_RATIO:%g Irms:%g\n", ICAL, SupplyVoltage, ADC_BITS, ADC_COUNTS, I_RATIO, Irms);
   // Reset accumulators
   sumI = 0;
   //--------------------------------------------------------------------------------------
@@ -245,7 +235,9 @@ long EnergyMonitor::readVcc() {
 #endif
 
 
-#if defined(__AVR__)
+#if defined(emonTxV3)
+  return (3300);
+#elif defined(__AVR__)
   delay(2);                                        // Wait for Vref to settle
   ADCSRA |= _BV(ADSC);                             // Convert
   while (bit_is_set(ADCSRA,ADSC));
