@@ -77,13 +77,14 @@ void EnergyMonitor::calcVI(unsigned int crossings, unsigned int timeout)
   //-------------------------------------------------------------------------------------------------------------------------
   // 1) Waits for the waveform to be close to 'zero' (mid-scale adc) part in sin curve.
   //-------------------------------------------------------------------------------------------------------------------------
-  unsigned long start = millis();    //millis()-start makes sure it doesnt get stuck in the loop if there is an error.
+  unsigned long start = millis();    //millis()-start makes sure it doesn't get stuck in the loop if there is an error.
+  bool st=false;                     //an indicator to exit the while loop
 
-  while(1)                                   //the while loop...
+  while(st==false)                   //the while loop...
   {
-    startV = analogRead(inPinV);                    //using the voltage waveform
-    if ((startV < (ADC_COUNTS*0.55)) && (startV > (ADC_COUNTS*0.45))) break;  //check its within range
-    if ((millis()-start)>timeout) break;
+    startV = analogRead(inPinV);     //using the voltage waveform
+    if ((startV < (ADC_COUNTS*0.55)) && (startV > (ADC_COUNTS*0.45))) st = true;  //check if it is within range
+    if ((millis()-start)>timeout) st = true;
   }
 
   //-------------------------------------------------------------------------------------------------------------------------
@@ -201,6 +202,7 @@ double EnergyMonitor::calcIrms(unsigned int Number_of_Samples)
   double I_RATIO = ICAL *((SupplyVoltage/1000.0) / (ADC_COUNTS));
   Irms = I_RATIO * sqrt(sumI / Number_of_Samples);
 
+  Serial.printf(">ICAL:%g SupplyVoltage:%d ADC_BITS:%d ADC_COUNTS:%d I_RATIO:%g Irms:%g\n", ICAL, SupplyVoltage, ADC_BITS, ADC_COUNTS, I_RATIO, Irms);
   // Reset accumulators
   sumI = 0;
   //--------------------------------------------------------------------------------------
