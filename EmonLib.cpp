@@ -255,6 +255,8 @@ long EnergyMonitor::readVcc() {
   return result;
 #elif defined(__arm__)
   return (3300);                                   // Arduino Due
+#elif defined(ESP32)
+  return (3300);
 #else
   return (3300);                                   // Guess that other un-supported architectures will be running a 3.3V!
 #endif
